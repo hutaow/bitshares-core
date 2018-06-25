@@ -32,6 +32,7 @@
 #include <graphene/snapshot/snapshot.hpp>
 #include <graphene/es_objects/es_objects.hpp>
 #include <graphene/grouped_orders/grouped_orders_plugin.hpp>
+#include <graphene/monitor/monitor.hpp>
 
 #include <fc/exception/exception.hpp>
 #include <fc/thread/thread.hpp>
@@ -200,6 +201,7 @@ int main(int argc, char** argv) {
       auto snapshot_plug = node->register_plugin<snapshot_plugin::snapshot_plugin>();
       auto es_objects_plug = node->register_plugin<es_objects::es_objects_plugin>();
       auto grouped_orders_plug = node->register_plugin<grouped_orders::grouped_orders_plugin>();
+      auto monitor_plug = node->register_plugin<monitor_plugin::monitor_plugin>();
 
       try
       {
