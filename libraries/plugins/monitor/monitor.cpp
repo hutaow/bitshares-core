@@ -26,10 +26,12 @@
 #include <graphene/chain/database.hpp>
 
 #include <fc/io/fstream.hpp>
+#include <iostream>
 
 using namespace graphene::monitor_plugin;
+using namespace graphene::chain;
+using namespace std;
 namespace bpo = boost::program_options;
-using std::string;
 
 #define MONITOR_OPT_ACTION_TYPE "monitor-action-type"
 
@@ -83,9 +85,22 @@ void monitor_plugin::plugin_shutdown() {
 
 void monitor_plugin::monitor_signed_block(const graphene::chain::signed_block& blk) {
     for (int i = 0; i < blk.transactions.size(); ++i) {
-        chain::processed_transaction trans = blk.transactions[i];
-        string act_str = trans.id().str();
-        printf(">>> action: %s \r\n", act_str.c_str());
+        processed_transaction trans = blk.transactions[i];
+
+        for (int j = 0; j < trans.operations.size(); ++j) {
+            operation op = trans.operations[j];
+
+            if (operation::tag<transfer_operation>::value == op.which()) {
+                transfer_operation& op_trans = op.get<transfer_operation>();
+                //graphene::chain::transfer_operation op_trans = op.get<graphene::chain::transfer_operation>();
+                const account_object& from_account = op_trans.from(database());
+                const account_object& to_account = op_trans.to(database());
+                const asset_object& asset_type = op_trans.amount.asset_id(database());
+
+                cout<<">>> action transfer: "<< from_account.name << " -> " << to_account.name << " "
+                    << asset_type.amount_to_pretty_string(op_trans.amount) << endl;
+            }
+        }
     }
     return;
 }
