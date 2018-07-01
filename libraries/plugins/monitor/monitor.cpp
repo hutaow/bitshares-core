@@ -31,7 +31,6 @@
 using namespace graphene::monitor_plugin;
 using namespace graphene::chain;
 using namespace std;
-namespace bpo = boost::program_options;
 
 #define MONITOR_OPT_ACTION_TYPE "monitor-action-type"
 
@@ -40,7 +39,7 @@ void monitor_plugin::plugin_set_program_options(
    boost::program_options::options_description& config_file_options)
 {
    command_line_options.add_options()
-         (MONITOR_OPT_ACTION_TYPE, bpo::value<uint32_t>(), "The type of operation monitored")
+         (MONITOR_OPT_ACTION_TYPE, boost::program_options::value<uint32_t>(), "The type of operation monitored")
          ;
    config_file_options.add(command_line_options);
 }
@@ -59,15 +58,12 @@ void monitor_plugin::plugin_initialize(const boost::program_options::variables_m
     try {
         ilog("monitor plugin: plugin_initialize() begin");
         
+        // 读取参数配置
         if (options.count(MONITOR_OPT_ACTION_TYPE)) {
             monitor_action_type = options[MONITOR_OPT_ACTION_TYPE].as<uint32_t>();
         } else {
             monitor_action_type = MONITOR_ACTION_TYPE_ALL;
         }
-
-        database().applied_block.connect( [&]( const graphene::chain::signed_block& blk ) {
-            monitor_signed_block( blk );
-        });
 
         ilog("monitor plugin: plugin_initialize() end");
     } FC_LOG_AND_RETHROW()
@@ -76,23 +72,35 @@ void monitor_plugin::plugin_initialize(const boost::program_options::variables_m
 }
 
 void monitor_plugin::plugin_startup() {
+    // 注册事件回调函数
+    monitor_signed_block_handler = database().applied_block.connect( [&]( const graphene::chain::signed_block& blk ) {
+        monitor_signed_block(blk);
+    });
+
+    monitor_signed_block_handler = database().on_pending_transaction.connect( [&]( const graphene::chain::signed_transaction& trans ) {
+        monitor_pending_transaction(trans);
+    });
+
     return;
 }
 
 void monitor_plugin::plugin_shutdown() {
+    // 卸载事件回调函数
+    database().applied_block.disconnect(monitor_signed_block_handler);
+    database().applied_block.disconnect(monitor_signed_trans_handler);
+
     return;
 }
 
 void monitor_plugin::monitor_signed_block(const graphene::chain::signed_block& blk) {
-    for (int i = 0; i < blk.transactions.size(); ++i) {
+    for (uint32_t i = 0; i < blk.transactions.size(); ++i) {
         processed_transaction trans = blk.transactions[i];
 
-        for (int j = 0; j < trans.operations.size(); ++j) {
+        for (uint32_t j = 0; j < trans.operations.size(); ++j) {
             operation op = trans.operations[j];
 
             if (operation::tag<transfer_operation>::value == op.which()) {
                 transfer_operation& op_trans = op.get<transfer_operation>();
-                //graphene::chain::transfer_operation op_trans = op.get<graphene::chain::transfer_operation>();
                 const account_object& from_account = op_trans.from(database());
                 const account_object& to_account = op_trans.to(database());
                 const asset_object& asset_type = op_trans.amount.asset_id(database());
@@ -102,5 +110,23 @@ void monitor_plugin::monitor_signed_block(const graphene::chain::signed_block& b
             }
         }
     }
+    return;
+}
+
+void monitor_plugin::monitor_pending_transaction( const graphene::chain::signed_transaction& trans) {
+    for (uint32_t i = 0; i < trans.operations.size(); ++i) {
+        operation op = trans.operations[i];
+
+        if (operation::tag<transfer_operation>::value == op.which()) {
+            transfer_operation& op_trans = op.get<transfer_operation>();
+            const account_object& from_account = op_trans.from(database());
+            const account_object& to_account = op_trans.to(database());
+            const asset_object& asset_type = op_trans.amount.asset_id(database());
+
+            cout<<">>> +action transfer: "<< from_account.name << " -> " << to_account.name << " "
+                << asset_type.amount_to_pretty_string(op_trans.amount) << endl;
+        }
+    }
+
     return;
 }

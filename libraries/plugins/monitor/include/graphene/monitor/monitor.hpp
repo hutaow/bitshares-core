@@ -27,24 +27,42 @@
 
 namespace graphene { namespace monitor_plugin {
     #define MONITOR_ACTION_TYPE_ALL (0xFFFFFFFF)
+
     class monitor_plugin : public graphene::app::plugin {
         public:
-          ~monitor_plugin() {}
+            // 插件名称
+            std::string plugin_name()const override;
 
-          std::string plugin_name()const override;
-          std::string plugin_description()const override;
+            // 插件描述信息
+            std::string plugin_description()const override;
 
-          virtual void plugin_set_program_options(
-             boost::program_options::options_description &command_line_options,
-             boost::program_options::options_description &config_file_options
-          ) override;
+            // 配置参数注册
+            virtual void plugin_set_program_options(
+                boost::program_options::options_description &command_line_options,
+                boost::program_options::options_description &config_file_options
+            ) override;
 
-          virtual void plugin_initialize( const boost::program_options::variables_map& options ) override;
-          virtual void plugin_startup() override;
-          virtual void plugin_shutdown() override;
+            // 插件初始化
+            virtual void plugin_initialize( const boost::program_options::variables_map& options ) override;
 
-        private:            
+            // 启动插件
+            virtual void plugin_startup() override;
+
+            // 停止插件
+            virtual void plugin_shutdown() override;
+
+        private:
+            // 事件注册句柄
+            boost::signals2::connection monitor_signed_block_handler;
+            boost::signals2::connection monitor_signed_trans_handler;
+
+            // 监控事件类型（暂时未使用）
             uint32_t monitor_action_type = MONITOR_ACTION_TYPE_ALL;
+
+            // 生成区块事件回调函数
             void monitor_signed_block( const graphene::chain::signed_block& b);
+
+            // 生成交易信息事件回调函数
+            void monitor_pending_transaction( const graphene::chain::signed_transaction& trans);
     };
 } } // graphene::monitor_plugin
